@@ -1,0 +1,379 @@
+package gui;
+
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridLayout;
+import java.util.List;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.swing.JPanel;
+/**
+ * 
+ * @author anromeo
+ *
+ */
+public class DrawingArea extends JPanel {
+
+    private int myThickness = 5;
+    /**
+     * The path being created.
+     */
+    private final GeneralPath myPath;
+
+    private double myOriginalX;
+    private double myOriginalY;
+
+    private double myEndingX;
+    private double myEndingY;
+
+    private double myTrailingX;
+    private double myTrailingY;
+
+    private List<Map<String, Object>> myShapes = new ArrayList<Map<String, Object>>();
+
+
+    private boolean myHoldingClick;
+
+    private boolean myGridIsOn;
+    private int MY_GRID_SPACING = 10;
+
+    private Color myColor;
+
+    private int MY_ORIGINAL_WIDTH = 500;
+    private int MY_ORIGINAL_HEIGHT = 350;
+
+    private Tool myCurrentTool;
+
+    private int myNumberOfPaths;
+    
+    private static final String MY_SHAPE_KEY = "shape";
+    private static final String MY_NUMBER_KEY = "number";
+    private static final String MY_COLOR_KEY = "color";
+    private static final String MY_THICKNESS_KEY = "thickness";
+    
+    public DrawingArea() {
+        setLayout(new GridLayout());
+        setPreferredSize(new Dimension(MY_ORIGINAL_WIDTH, MY_ORIGINAL_HEIGHT));
+        myPath = new GeneralPath();
+        addMouseListener(new MyMouseClicker());
+        addMouseMotionListener(new MyMouseAdapter());
+        myHoldingClick = false;
+        myColor = Color.BLACK;
+        myGridIsOn = false; // Start with the grid view off.
+        myCurrentTool = Tool.PENCIL;
+        myTrailingX = 0;
+        myTrailingY = 0;
+    }
+
+    @Override
+    public void paintComponent(final Graphics theGraphic) {
+        super.paintComponent(theGraphic);
+
+        final Graphics2D g2d = (Graphics2D) theGraphic;
+
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                             RenderingHints.VALUE_ANTIALIAS_ON);
+
+        drawShapes(g2d);
+        if (myOriginalX != 0 && myOriginalY != 0) {
+
+            g2d.setPaint(myColor);
+            g2d.setStroke(new BasicStroke(myThickness));
+    
+            final Map<String, Object> attributes = new HashMap<String, Object>();
+            attributes.put(MY_COLOR_KEY, myColor);
+            attributes.put(MY_THICKNESS_KEY, Integer.valueOf(myThickness));
+            switch (myCurrentTool) {
+                case PENCIL : 
+                    drawPencil(g2d, attributes);
+                    break;
+                case LINE :
+                    drawLine(g2d, attributes);
+                    break;
+                case RECTANGLE :
+                case ELLIPSE :
+                    drawRectangleOrEllipse(g2d, attributes);
+                    break;
+                default :
+                    break;
+            }
+        }
+        if (myGridIsOn) {
+            drawGrid(g2d);
+        }
+
+    }
+
+    /**
+     * Draw all the Shapes.
+     * @param theGraphic being drawn on
+     */
+    private void drawShapes(final Graphics2D theGraphic) {
+        for (final Map<String, Object> shapeAttributes : myShapes) {
+            theGraphic.setPaint((Color) shapeAttributes.get(MY_COLOR_KEY));
+            theGraphic.setStroke(new BasicStroke((int) shapeAttributes.get(MY_THICKNESS_KEY)));
+            theGraphic.draw((Shape) shapeAttributes.get(MY_SHAPE_KEY));
+        }        
+    }
+
+    /**
+     * Draw with the Pencil tool.
+     * @param theGraphic being drawn on
+     */
+    private void drawPencil(final Graphics2D theGraphic,
+                            final Map<String, Object> theShapeAttributes) {
+
+        double x = myOriginalX;
+        double y = myOriginalY;
+        GeneralPath pathToUse;
+
+        if (!myShapes.isEmpty()
+                && myShapes.get(myShapes.size() - 1).get(MY_SHAPE_KEY).getClass()
+                == myPath.getClass()
+                && myShapes.get(myShapes.size() - 1).get(MY_NUMBER_KEY) != null
+                && (int) myShapes.get(myShapes.size() - 1).get("number") == myNumberOfPaths) {
+            pathToUse = (GeneralPath) myShapes.get(myShapes.size() - 1).get("shape");
+            myShapes.remove(myShapes.size() - 1);
+            x = pathToUse.getCurrentPoint().getX();
+            y = pathToUse.getCurrentPoint().getY();
+        } else {
+            pathToUse = new GeneralPath();
+        }
+        if (myHoldingClick) {
+            theShapeAttributes.put(MY_NUMBER_KEY, Integer.valueOf(myNumberOfPaths));
+            pathToUse.moveTo(myTrailingX, myTrailingY);
+            pathToUse.lineTo(x, y);
+        } else {
+            pathToUse.moveTo(myTrailingX, myTrailingY);
+            pathToUse.lineTo(myTrailingX, myTrailingY);
+        }
+        pathToUse.closePath();
+        theShapeAttributes.put(MY_SHAPE_KEY, pathToUse);
+        myShapes.add(theShapeAttributes);
+        theGraphic.draw((Shape) pathToUse.clone());
+        //                    myShapes.put((Shape) myPath.clone(), myThickness);    
+    }
+
+    /**
+     * Draws the Line onto the Drawing Area.
+     * @param theGraphic being drawn on
+     * @param theShapeAttributes used to store the shape
+     */
+    private void drawLine(final Graphics2D theGraphic,
+                          final Map<String, Object> theShapeAttributes) {
+
+        Line2D savedLine;
+        if (myHoldingClick) {
+            savedLine = new Line2D.Double(myOriginalX, myOriginalY, 
+                                          myTrailingX, myTrailingY);
+        } else {
+            savedLine = new Line2D.Double(myOriginalX, myOriginalY, 
+                                          myEndingX, myEndingY);
+            theShapeAttributes.put("shape", savedLine);
+            myShapes.add(theShapeAttributes);
+        }
+        theGraphic.draw(savedLine);
+
+    }
+
+    /**
+     * Draws the  Rectangle Or Ellipse onto the graphic.
+     * @param theGraphic being drawn on
+     * @param theShapeAttributes used to store the shape
+     */
+    private void drawRectangleOrEllipse(final Graphics2D theGraphic,
+                                        final Map<String, Object> theShapeAttributes) {
+        double firstX = myOriginalX;
+        double firstY = myOriginalY;
+
+        if (myTrailingX < myOriginalX) {
+            firstX = myTrailingX;
+        }
+        if (myTrailingY < myOriginalY) {
+            firstY = myTrailingY;
+        }
+        final Shape savedShape;
+        if (myCurrentTool == Tool.RECTANGLE) {
+            savedShape = new Rectangle2D.Double(
+                                                firstX,
+                                                firstY,
+                                                Math.abs(myEndingX - myOriginalX),
+                                                Math.abs(myEndingY - myOriginalY));
+        } else {
+            savedShape = new Ellipse2D.Double(
+                                              firstX,
+                                              firstY,
+                                              Math.abs(myEndingX - myOriginalX),
+                                              Math.abs(myEndingY - myOriginalY));            
+        }
+        if (!myHoldingClick) {
+            theShapeAttributes.put("shape", savedShape);
+            myShapes.add(theShapeAttributes);
+        }
+        theGraphic.draw(savedShape);
+    }
+    /**
+     * Empties out all the shapes.
+     */
+    public void clear() {
+        myOriginalX = 0;
+        myOriginalY = 0;
+        myShapes.clear();
+        repaint();
+    }
+
+    /**
+     * Toggles the grid on and off.
+     */
+    public void toggleGrid() {
+        if (myGridIsOn) {
+            myGridIsOn = false;
+        } else {
+            myGridIsOn = true;
+        }
+        repaint();
+    }
+
+    /**
+     * Returns the Tool being held by this DrawingArea.
+     * @return myCurrentTool
+     */
+    public Tool getTool() {
+        return myCurrentTool;
+    }
+
+    /**
+     * Sets the Tool being held by this DrawingArea.
+     * @param theTool being set
+     */
+    public void setTool(final Tool theTool) {
+        myCurrentTool = theTool;
+    }
+
+    /**
+     * Draws the grid.
+     * @param theGraphic
+     */
+    private void drawGrid (final Graphics2D theGraphic) {
+        theGraphic.setPaint(Color.GRAY);
+        theGraphic.setStroke(new BasicStroke(1));
+
+        final double gridWidth = getWidth();
+        double gridHeight = getHeight();
+        double horizontalYPoint = 0;
+        double verticalXPoint = 0;
+
+        while(horizontalYPoint <= gridHeight) {
+            horizontalYPoint += MY_GRID_SPACING;
+            Line2D gridLineHorizontal = new Line2D.Double(0, horizontalYPoint,
+                                                          gridWidth,
+                                                          horizontalYPoint);
+            theGraphic.draw(gridLineHorizontal);
+        }
+
+        while (verticalXPoint <= gridWidth) {
+            theGraphic.setStroke(new BasicStroke(1));
+            verticalXPoint += MY_GRID_SPACING;
+            Line2D gridLineVertical = new Line2D.Double(verticalXPoint, 0,
+                                                        verticalXPoint,
+                                                        gridHeight);
+            theGraphic.draw(gridLineVertical);
+        }
+    }
+
+    /**
+     * Defines the current Tool that can be instantiated.
+     * @author anromeo
+     */
+    public enum Tool {
+        /** The possible representations of the Tool Enum. */
+        PENCIL, LINE, RECTANGLE, ELLIPSE;
+    }
+
+    /**
+     * Returns the current color being worked with.
+     * @return myColor
+     */
+    public Color getColor() {
+        return myColor;
+    }
+
+    /**
+     * Sets the Thickness for the Drawing Area.
+     * @param theThickness represented by an int
+     */
+    public void setThickness(final int theThickness) {
+        myThickness = theThickness;
+    }
+
+    /**
+     * Changes the current color being worked with.
+     * @param theColor being changed to.
+     */
+    public void setColor(final Color theColor) {
+        myColor = theColor;
+    }
+
+    private class MyMouseClicker extends MouseAdapter {
+        /**
+         *  {@inheritDoc}
+         */
+        @Override
+        public void mousePressed(final MouseEvent theEvent) {
+            myOriginalX = theEvent.getX();
+            myOriginalY = theEvent.getY();
+            myTrailingX = theEvent.getX();
+            myTrailingX = theEvent.getY();
+            myHoldingClick = false;
+        }
+
+        /**
+         *  {@inheritDoc}
+         */
+        @Override
+        public void mouseReleased(final MouseEvent theEvent) {
+            myEndingX = theEvent.getX();
+            myEndingY = theEvent.getY();
+            myHoldingClick = false;
+            repaint();
+            myNumberOfPaths++;
+        }
+
+    }
+
+    /**
+     * Creates a MouseHandler for mouse clicks.
+     * @author anthonyzullo
+     */
+    private class MyMouseAdapter extends MouseAdapter
+    {
+        /**
+         *  {@inheritDoc}
+         */
+        @Override
+        public void mouseDragged(final MouseEvent theEvent) {
+            myEndingX = theEvent.getX();
+            myEndingY = theEvent.getY();
+
+            myTrailingX = theEvent.getX();
+            myTrailingY = theEvent.getY();
+            repaint();
+            myHoldingClick = true;
+        }
+
+    }
+}

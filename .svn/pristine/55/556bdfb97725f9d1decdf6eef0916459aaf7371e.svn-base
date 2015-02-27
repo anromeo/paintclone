@@ -1,0 +1,272 @@
+package gui;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JPanel;
+import javax.swing.JSlider;
+import javax.swing.JToggleButton;
+import javax.swing.JToolBar;
+
+import com.sun.glass.events.KeyEvent;
+
+public class PowerPaintGui extends JFrame {
+
+    
+    /** The main drawing panel. */
+    private final JPanel myPanel1;
+
+    /** The drawing area. */
+    private final JPanel myPanel2;
+
+    /** The main menu bar. */
+    private final JMenuBar myMenuBar;
+        
+    /** The toolbar. */
+    private final JToolBar myToolBar;
+    
+    /**
+     * The toggle buttons group.
+     */
+    private final ButtonGroup toggleButtonsGroup;    
+    /**
+     * This method constructs the power paint gui.
+     */
+    public PowerPaintGui() {
+        super("TCSS 305 PowerPaint");
+        final Image img = new ImageIcon("w.gif").getImage();
+        setIconImage(img);
+        
+        myMenuBar = new JMenuBar();
+        toggleButtonsGroup = new ButtonGroup();
+        
+        myPanel1 = new DrawingArea();
+        
+//        myPanel1.addMouseMotionListener(new MyMouseAdapter());
+        
+        myPanel2 = new JPanel();
+        
+//        setLocationByPlatform(true);
+
+        final JMenuItem clearMenuItem = new JMenuItem("Clear", KeyEvent.VK_C);
+        final JMenuItem exitMenuItem = new JMenuItem("Exit", KeyEvent.VK_X);
+
+        // Creating the File Menu
+        final List<JMenuItem> fileMenuItemsList = new ArrayList<JMenuItem>();
+        fileMenuItemsList.add(clearMenuItem);
+        fileMenuItemsList.add(exitMenuItem);
+        
+        myMenuBar.add(createJMenu("File", fileMenuItemsList, KeyEvent.VK_F, true));
+        
+        // Creating the Options Menu
+        final JMenuItem gridMenuItem = new JMenuItem("Grid", KeyEvent.VK_G);
+        final JMenuItem thicknessMenuItem = new JMenuItem("Thickness", KeyEvent.VK_T);
+        
+        JMenu thicknessMenuItemSlider = new JMenu("Thickness");
+        JSlider thicknessSlider = new JSlider(0, 20, 5);
+        thicknessSlider.setMajorTickSpacing(5);
+        thicknessSlider.setMinorTickSpacing(1);
+        thicknessSlider.setPaintTicks(true);
+        thicknessSlider.setSnapToTicks(true);
+        thicknessSlider.setPaintLabels(true);
+        thicknessMenuItemSlider.add(thicknessSlider);
+        thicknessMenuItem.add(thicknessMenuItemSlider);
+
+        final List<JMenuItem> optionsMenuItemsList = new ArrayList<JMenuItem>();
+        optionsMenuItemsList.add(gridMenuItem);
+//        optionsMenuItemsList.add(thicknessMenuItem);
+
+        JMenu optionsMenu = createJMenu("Options", optionsMenuItemsList, 
+                                        KeyEvent.VK_O, false);
+        optionsMenu.add(thicknessMenuItemSlider);
+        myMenuBar.add(optionsMenu);
+        
+        // Creates the Tools Menu
+        final JMenuItem colorMenuItem = new JMenuItem("Color...", KeyEvent.VK_C);
+        final JMenuItem pencilMenuItem = new JMenuItem("Pencil", KeyEvent.VK_P);
+        final JMenuItem lineMenuItem = new JMenuItem("Line", KeyEvent.VK_L);
+        final JMenuItem rectangleMenuItem = new JMenuItem("Rectangle", KeyEvent.VK_R);
+        final JMenuItem ellipseMenuItem = new JMenuItem("Ellipse", KeyEvent.VK_E);
+
+        final List<JMenuItem> toolsMenuItemsList = new ArrayList<JMenuItem>();
+        toolsMenuItemsList.add(colorMenuItem);
+        toolsMenuItemsList.add(pencilMenuItem);
+        toolsMenuItemsList.add(lineMenuItem);
+        toolsMenuItemsList.add(rectangleMenuItem);
+        toolsMenuItemsList.add(ellipseMenuItem);
+        
+        myMenuBar.add(createJMenu("Tools", toolsMenuItemsList, KeyEvent.VK_T, true));
+
+        // Creates the About Menu
+        final JMenuItem aboutMenuItem = new JMenuItem("About...", KeyEvent.VK_A);
+        final List<JMenuItem> helpMenuItemsList = new ArrayList<JMenuItem>();
+        
+        helpMenuItemsList.add(aboutMenuItem);
+        myMenuBar.add(createJMenu("Help", helpMenuItemsList, KeyEvent.VK_H, false));
+        
+        
+        myToolBar = new JToolBar();
+
+//        myMenuBar.add(myFileMenu).setMnemonic(KeyEvent.VK_A);        
+        
+        
+        
+    }
+    
+    /**
+     * For each JMenuItem, add it to a JMenu that is returned.
+     * 
+     * @param theHeader : string of top level in JMenu
+     * @param theJMenuItemList : List of all JMenuItems to add.
+     * @param theMnemonic : int of the Mnemonic
+     * @param theLineSeparator : boolean representing whether to add
+     * a line separator the first line or not
+     * @return JMenu : to be added to.
+     */
+    private JMenu createJMenu(final String theHeader, final
+                                    List<JMenuItem> theJMenuItemList,
+                                    final int theMnemonic,
+                                    final boolean theLineSeparator) {
+        final JMenu returnedJMenu = new JMenu(theHeader);
+        returnedJMenu.setMnemonic(theMnemonic);
+        int i = 0;
+        
+        for (final JMenuItem item : theJMenuItemList) {
+            returnedJMenu.add(item);
+            if (theLineSeparator && i == 0) {
+                returnedJMenu.addSeparator();
+            }
+            i++;
+        }
+        return returnedJMenu;
+    }
+    
+    
+    /**
+     * Starts the gui program.
+     */
+    public void start() {
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        
+        setJMenuBar(myMenuBar);
+        
+        final JButton colorButton = new JButton("Color...");
+        colorButton.setMnemonic(KeyEvent.VK_C);
+        
+        myToolBar.add(colorButton);
+        myToolBar.addSeparator();
+        
+        // Adds the Toggle Button
+        final JToggleButton pencilButton = createToggle("Pencil", KeyEvent.VK_P);
+        pencilButton.setSelected(true);
+        
+        final JToggleButton lineButton = createToggle("Line", 'L');
+        final JToggleButton rectangleButton = createToggle("Rectangle", KeyEvent.VK_R);
+        final JToggleButton ellipseButton = createToggle("Ellipse", KeyEvent.VK_E);
+
+        myToolBar.add(pencilButton);
+        myToolBar.add(lineButton);
+        myToolBar.add(rectangleButton);
+        myToolBar.add(ellipseButton);
+        
+//        if (pencilButton.isSelected()) {
+//            myPanel1.add(new DrawLine());
+            
+//        };
+//        myPanel1.setPreferredSize(new Dimension(550, 300));
+
+        myPanel1.setBackground(Color.WHITE);
+        add(myPanel1, BorderLayout.NORTH);
+        add(myToolBar, BorderLayout.SOUTH);
+        setVisible(true);
+//        setExtendedState(MAXIMIZED_BOTH);
+//        setLocation((int) (Math.ceil(getBounds().getWidth() / 2)),
+//                    (int) (Math.ceil(getBounds().getHeight() / 2 )));
+        pack();
+        centerTheJframe();
+
+    }
+    
+    /**
+     * This creates a JToggleButton and adds it to the toggleButtonsGroup
+     * field.
+     * 
+     * @param theLabel String on the front of the button
+     * @param theMnemonic int
+     * @return a JToggleButton
+     */
+    private JToggleButton createToggle(final String theLabel,
+                                       final int theMnemonic) {
+        final JToggleButton returnToggleButton = new JToggleButton(theLabel);
+        returnToggleButton.setMnemonic(theMnemonic);
+        toggleButtonsGroup.add(returnToggleButton);
+        return returnToggleButton;
+    }
+    
+    /**
+     * Centers the frame.
+     */
+    private void centerTheJframe() {
+        
+        final Toolkit kit = Toolkit.getDefaultToolkit();
+        final Dimension screenSize = kit.getScreenSize();
+        final int screenWidth = screenSize.width;
+        final int screenHeight = screenSize.height;
+
+        setLocation((int) (screenWidth / 2.0 - getSize().width / 2.0),
+                    (int) (screenHeight / 2.0 - getSize().height / 2.0));
+        
+    }
+        
+//    /**
+//     * Creates a MouseHandler for mouse clicks.
+//     * @author anthonyzullo
+//     */
+//    private class MyMouseAdapter extends MouseAdapter
+//    {
+//        private double myOriginalX;
+//        private double myOriginalY;
+//
+//        private double myEndingX;
+//        private double myEndingY;
+//        
+//        @Override
+//         public void mousePressed(final MouseEvent theEvent)
+//         {
+//                 myOriginalX = theEvent.getX();
+//                 myOriginalY = theEvent.getY();
+//         }
+//         
+//        @Override
+//        public void mouseDragged(final MouseEvent theEvent) {
+//            System.out.println("X " + theEvent.getX() + " Y " + theEvent.getY());
+//        }
+//        
+//         @Override
+//         public void mouseReleased(final MouseEvent theEvent) {
+//             myEndingX = theEvent.getX();
+//             myEndingY = theEvent.getY();
+//         }
+//                  
+//    }
+}

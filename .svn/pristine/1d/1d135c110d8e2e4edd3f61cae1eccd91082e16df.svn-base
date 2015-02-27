@@ -1,0 +1,367 @@
+package gui;
+
+import gui.DrawingArea.Tool;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Event;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JColorChooser;
+import javax.swing.JComponent;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JSlider;
+import javax.swing.JToggleButton;
+import javax.swing.JToolBar;
+import javax.swing.SwingUtilities;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+
+import com.sun.glass.events.KeyEvent;
+
+public class PowerPaintGui extends JFrame {
+
+
+    /** The main drawing panel. */
+    private final DrawingArea myPanel1;
+
+    /** The drawing area. */
+    private final JPanel myPanel2;
+
+    /** The main menu bar. */
+    private final JMenuBar myMenuBar;
+
+    /** The toolbar. */
+    private final JToolBar myToolBar;
+
+    /** The current tool chosen. */
+    private final Tool myCurrentTool;
+
+    /**
+     * The toggle buttons group.
+     */
+    private final ButtonGroup toggleButtonsGroup;    
+    /**
+     * This method constructs the power paint gui.
+     */
+    public PowerPaintGui() {
+        super("TCSS 305 PowerPaint");
+        final Image img = new ImageIcon("w.gif").getImage();
+        setIconImage(img);
+
+        myMenuBar = new JMenuBar();
+        myCurrentTool = Tool.LINE;
+        toggleButtonsGroup = new ButtonGroup();
+
+        myPanel1 = new DrawingArea();
+
+        //        myPanel1.addMouseMotionListener(new MyMouseAdapter());
+
+        myPanel2 = new JPanel();
+
+        //        setLocationByPlatform(true);
+
+        final JMenuItem clearMenuItem = new JMenuItem("Clear", KeyEvent.VK_C);
+        clearMenuItem.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                getPanel().clear();
+            }            
+        });
+
+        final JMenuItem exitMenuItem = new JMenuItem("Exit", KeyEvent.VK_X);
+
+        exitMenuItem.addActionListener(new ActionListener(){       
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                System.exit(0);
+            }
+        });
+        // Creating the File Menu
+        final List<JMenuItem> fileMenuItemsList = new ArrayList<JMenuItem>();
+        fileMenuItemsList.add(clearMenuItem);
+        fileMenuItemsList.add(exitMenuItem);
+
+        myMenuBar.add(createJMenu("File", fileMenuItemsList, KeyEvent.VK_F, true));
+
+        // Creating the Options Menu
+        final JMenuItem gridMenuItem = new JMenuItem("Grid", KeyEvent.VK_G);
+        gridMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent theEvent) {
+                getPanel().toggleGrid();
+            }
+
+        });
+
+        final JMenuItem thicknessMenuItem = new JMenuItem("Thickness", KeyEvent.VK_T);
+
+        JMenu thicknessMenuItemSlider = new JMenu("Thickness");
+        JSlider thicknessSlider = new JSlider(0, 20, 5);
+        thicknessSlider.addChangeListener(new ChangeThicknessListener());
+        
+//        thicknessSlider.addChangeListener(new ChangeEvent(){
+//            
+//        });
+        thicknessSlider.setMajorTickSpacing(5);
+        thicknessSlider.setMinorTickSpacing(1);
+        thicknessSlider.setPaintTicks(true);
+        thicknessSlider.setSnapToTicks(true);
+        thicknessSlider.setPaintLabels(true);
+        thicknessMenuItemSlider.add(thicknessSlider);
+        thicknessMenuItem.add(thicknessMenuItemSlider);
+
+        final List<JMenuItem> optionsMenuItemsList = new ArrayList<JMenuItem>();
+        optionsMenuItemsList.add(gridMenuItem);
+        //        optionsMenuItemsList.add(thicknessMenuItem);
+
+        JMenu optionsMenu = createJMenu("Options", optionsMenuItemsList, 
+                                        KeyEvent.VK_O, false);
+        optionsMenu.add(thicknessMenuItemSlider);
+        myMenuBar.add(optionsMenu);
+
+        // Creates the Tools Menu
+        final JMenuItem colorMenuItem = new JMenuItem("Color...", KeyEvent.VK_C);
+        colorMenuItem.addActionListener(addChangeColorAction());
+        
+        final JMenuItem pencilMenuItem = new JMenuItem("Pencil", KeyEvent.VK_P);
+
+        final JMenuItem lineMenuItem = new JMenuItem("Line", KeyEvent.VK_L);
+        lineMenuItem.addActionListener(new ToolListener(Tool.LINE));
+
+        final JMenuItem rectangleMenuItem = new JMenuItem("Rectangle", KeyEvent.VK_R);
+        rectangleMenuItem.addActionListener(new ToolListener(Tool.RECTANGLE));
+
+        final JMenuItem ellipseMenuItem = new JMenuItem("Ellipse", KeyEvent.VK_E);
+        ellipseMenuItem.addActionListener(new ToolListener(Tool.ELLIPSE));
+
+        final List<JMenuItem> toolsMenuItemsList = new ArrayList<JMenuItem>();
+        toolsMenuItemsList.add(colorMenuItem);
+        toolsMenuItemsList.add(pencilMenuItem);
+        toolsMenuItemsList.add(lineMenuItem);
+        toolsMenuItemsList.add(rectangleMenuItem);
+        toolsMenuItemsList.add(ellipseMenuItem);
+
+        myMenuBar.add(createJMenu("Tools", toolsMenuItemsList, KeyEvent.VK_T, true));
+
+        // Creates the About Menu
+        final JMenuItem aboutMenuItem = new JMenuItem("About...", KeyEvent.VK_A);
+        aboutMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent theEvent) {
+                JOptionPane.showMessageDialog(PowerPaintGui.this,
+                                              "TCSS 305 PowerPaint, Winter 2015",
+                                              "About",
+                                              JOptionPane.PLAIN_MESSAGE);
+            }
+            
+        });
+        final List<JMenuItem> helpMenuItemsList = new ArrayList<JMenuItem>();
+
+        helpMenuItemsList.add(aboutMenuItem);
+        myMenuBar.add(createJMenu("Help", helpMenuItemsList, KeyEvent.VK_H, false));
+
+
+        myToolBar = new JToolBar();
+
+        //        myMenuBar.add(myFileMenu).setMnemonic(KeyEvent.VK_A);        
+
+
+
+    }
+
+    /**
+     * For each JMenuItem, add it to a JMenu that is returned.
+     * 
+     * @param theHeader : string of top level in JMenu
+     * @param theJMenuItemList : List of all JMenuItems to add.
+     * @param theMnemonic : int of the Mnemonic
+     * @param theLineSeparator : boolean representing whether to add
+     * a line separator the first line or not
+     * @return JMenu : to be added to.
+     */
+    private JMenu createJMenu(final String theHeader, final
+                              List<JMenuItem> theJMenuItemList,
+                              final int theMnemonic,
+                              final boolean theLineSeparator) {
+        final JMenu returnedJMenu = new JMenu(theHeader);
+        returnedJMenu.setMnemonic(theMnemonic);
+        int i = 0;
+
+        for (final JMenuItem item : theJMenuItemList) {
+            returnedJMenu.add(item);
+            if (theLineSeparator && i == 0) {
+                returnedJMenu.addSeparator();
+            }
+            i++;
+        }
+        return returnedJMenu;
+    }
+
+
+    /**
+     * Starts the gui program.
+     */
+    public void start() {
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+
+        setJMenuBar(myMenuBar);
+
+        final JButton colorButton = new JButton("Color...");
+//        colorButton.add(new ImageLabel().);
+        colorButton.addActionListener(addChangeColorAction());
+        colorButton.setMnemonic(KeyEvent.VK_C);
+
+        myToolBar.add(colorButton);
+        myToolBar.addSeparator();
+
+        // Adds the Toggle Button
+        final JToggleButton pencilButton = createToggle("Pencil", KeyEvent.VK_P,
+                                                        Tool.PENCIL);
+        pencilButton.setSelected(true);
+
+        final JToggleButton lineButton = createToggle("Line", 'L', Tool.LINE);
+        final JToggleButton rectangleButton = createToggle("Rectangle", KeyEvent.VK_R,
+                                                           Tool.RECTANGLE);
+        final JToggleButton ellipseButton = createToggle("Ellipse", KeyEvent.VK_E,
+                                                         Tool.ELLIPSE);
+
+        myToolBar.add(pencilButton);
+        myToolBar.add(lineButton);
+        myToolBar.add(rectangleButton);
+        myToolBar.add(ellipseButton);
+
+        //        if (pencilButton.isSelected()) {
+        //            myPanel1.add(new DrawLine());
+
+        //        };
+        //        myPanel1.setPreferredSize(new Dimension(550, 300));
+
+        myPanel1.setBackground(Color.WHITE);
+        add(myPanel1, BorderLayout.NORTH);
+        add(myToolBar, BorderLayout.SOUTH);
+        setVisible(true);
+        //        setExtendedState(MAXIMIZED_BOTH);
+        //        setLocation((int) (Math.ceil(getBounds().getWidth() / 2)),
+        //                    (int) (Math.ceil(getBounds().getHeight() / 2 )));
+        pack();
+        centerTheJframe();
+
+    }
+
+    /**
+     * Creates the ActionListener for Each Tool
+     */
+    private class ToolListener implements ActionListener {
+
+        private Tool myTool;
+        private JButton myButton;
+        private JMenuItem myMenuItem;
+
+        private ToolListener(){
+            super();
+            myTool = null;
+        }
+
+        public ToolListener(Tool theTool) {
+            myTool = theTool;
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent theEvent) {
+            getPanel().setTool(myTool);
+            
+        }
+    }
+
+    /** Gets the Drawing Panel of this Class. */
+    private DrawingArea getPanel() {
+        return myPanel1;
+    }
+
+
+    private ActionListener addChangeColorAction() {
+        return new ActionListener() {
+            @Override
+            public void actionPerformed(final ActionEvent theEvent) {
+                final JColorChooser chooser = new JColorChooser();
+
+                final Color returnColor = chooser.showDialog(myPanel1,
+                                                             "Choose a Color", Color.BLACK);
+                if (returnColor != null) {
+                    myPanel1.setColor(returnColor);
+                }
+            }
+        };  
+        //        JColorChooser chooser = new JColorChooser();
+    }
+    /**
+     * This creates a JToggleButton and adds it to the toggleButtonsGroup
+     * field.
+     * 
+     * @param theLabel String on the front of the button
+     * @param theMnemonic int
+     * @param theTool Tool Enum being added to Toggle Button
+     * @return a JToggleButton
+     */
+    private JToggleButton createToggle(final String theLabel,
+                                       final int theMnemonic,
+                                       final Tool theTool) {
+        final JToggleButton returnToggleButton = new JToggleButton(theLabel);
+        returnToggleButton.setMnemonic(theMnemonic);
+        returnToggleButton.addActionListener(new ToolListener(theTool));
+        toggleButtonsGroup.add(returnToggleButton);
+        return returnToggleButton;
+    }
+
+    /**
+     * Centers the frame.
+     */
+    private void centerTheJframe() {
+
+        final Toolkit kit = Toolkit.getDefaultToolkit();
+        final Dimension screenSize = kit.getScreenSize();
+        final int screenWidth = screenSize.width;
+        final int screenHeight = screenSize.height;
+
+        setLocation((int) (screenWidth / 2.0 - getSize().width / 2.0),
+                    (int) (screenHeight / 2.0 - getSize().height / 2.0));
+
+    }
+
+    private class ChangeThicknessListener implements ChangeListener{
+
+        @Override
+        public void stateChanged(ChangeEvent theEvent) {
+            JSlider slider = (JSlider) theEvent.getSource();
+            int thickness = slider.getValue();
+            myPanel1.setThickness(thickness);
+        }
+    }
+
+}
